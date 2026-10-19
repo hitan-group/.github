@@ -119,7 +119,8 @@ jobs:
               const head = p.head_commit;
               if (!head) return;
               const sha = head.id.slice(0, 7);
-              const line = `Deployed to live, ${when(head.timestamp)}, by ${actor}, commit ${sha} "${head.message.split('\n')[0]}".`;
+              // The moment of the push, not when the commit was written: that is when it went live.
+              const line = `Deployed to live, ${when()}, by ${actor}, commit ${sha} "${head.message.split('\n')[0]}".`;
               const done = new Set();
               for (const c of commits) {
                 const prs = (await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: c.id })).data.filter((pr) => pr.merged_at);
@@ -136,7 +137,7 @@ jobs:
                   await move(issue, 'Live', line, { 'Deployed at': today });
                 }
               }
-              await log(`**${owner}/${repo}** (${product}) deployed, ${when(head.timestamp)}, by ${actor}: [${sha}](${head.url}) ${head.message.split('\n')[0]}${done.size ? ` · cards: ${[...done].map((n) => `#${n}`).join(', ')}` : ''}`);
+              await log(`**${owner}/${repo}** (${product}) deployed, ${when()}, by ${actor}: [${sha}](${head.url}) ${head.message.split('\n')[0]}${done.size ? ` · cards: ${[...done].map((n) => `#${n}`).join(', ')}` : ''}`);
             } else if (e === 'release' && p.action === 'published' && mode === 'release') {
               const rel = p.release;
               // Cards of this repository waiting in Testing (merged, not yet released) go Live.
