@@ -1,0 +1,152 @@
+# The company board moves by itself, from what really happened in GitHub.
+#
+# WHY, 20 October 2026: progress has to be truthful. A card's status is set
+# by this workflow from events nobody can fake (an issue opened, a pull
+# request opened or merged, a push to main, a release), never typed by hand.
+# Every move is also written as a comment on the issue, with the date and time
+# in Pakistan, who did it and the exact commit, and every deploy is added to
+# the Deploy log (hitan-group/.github-private#1).
+#
+# Each repository calls this with a few lines (see README.md):
+#   product:     the board's Product name, e.g. "Posting tool"
+#   deploy_mode: "merge"   a push to main is a deploy (Render, Netlify, Firebase)
+#                "release" a published GitHub release is the deploy (SEO Assist)
+#
+# Needs the repository secret BOARD_TOKEN: a fine grained token owned by
+# hitan-group with Projects read and write, and Issues, Pull requests and
+# Contents read (Issues write to comment).
+name: Company board
+
+on:
+  workflow_call:
+    inputs:
+      product:
+        required: true
+        type: string
+      deploy_mode:
+        required: false
+        type: string
+        default: merge
+    secrets:
+      BOARD_TOKEN:
+        required: true
+
+jobs:
+  board:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7.0.1
+        env:
+          PRODUCT: ${{ inputs.product }}
+          DEPLOY_MODE: ${{ inputs.deploy_mode }}
+        with:
+          github-token: ${{ secrets.BOARD_TOKEN }}
+          script: |
+            const ORG = 'hitan-group';
+            const NUMBER = 1;
+            const LOG = { owner: ORG, repo: '.github-private', issue_number: 1 };
+            const product = process.env.PRODUCT;
+            const mode = process.env.DEPLOY_MODE === 'release' ? 'release' : 'merge';
+            const { owner, repo } = context.repo;
+            const actor = context.actor;
+            const when = (d = new Date()) =>
+              new Date(d).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + ' PKT';
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+
+            const project = (await github.graphql(
+              `query($o:String!,$n:Int!){ organization(login:$o){ projectV2(number:$n){ id
+                 fields(first:50){ nodes{ ... on ProjectV2FieldCommon { id name } ... on ProjectV2SingleSelectField { id name options{ id name } } } } } } }`,
+              { o: ORG, n: NUMBER }
+            )).organization.projectV2;
+            const field = (name) => project.fields.nodes.find((f) => f.name === name);
+
+            async function itemFor(contentId) {
+              // Adding something already on the board returns its existing card.
+              return (await github.graphql('mutation($p:ID!,$c:ID!){ addProjectV2ItemById(input:{projectId:$p,contentId:$c}){ item{ id } } }', { p: project.id, c: contentId })).addProjectV2ItemById.item.id;
+            }
+            async function set(itemId, name, value) {
+              const f = field(name);
+              if (!f) return core.warning(`Board has no field "${name}"`);
+              let v;
+              if (f.options) {
+                const o = f.options.find((x) => x.name === value);
+                if (!o) return core.warning(`No ${name} option "${value}"`);
+                v = { singleSelectOptionId: o.id };
+              } else if (name === 'Deployed at') v = { date: value };
+              else v = { text: String(value).slice(0, 250) };
+              await github.graphql('mutation($p:ID!,$i:ID!,$f:ID!,$v:ProjectV2FieldValue!){ updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:$v}){ projectV2Item{ id } } }', { p: project.id, i: itemId, f: f.id, v });
+            }
+            async function move(issue, status, line, extra = {}) {
+              const itemId = await itemFor(issue.node_id ?? issue.id);
+              await set(itemId, 'Status', status);
+              await set(itemId, 'Product', product);
+              await set(itemId, 'Last update', line);
+              for (const [k, v] of Object.entries(extra)) await set(itemId, k, v);
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: `**Board: ${status}.** ${line}` });
+            }
+            const log = (line) => github.rest.issues.createComment({ ...LOG, body: line });
+
+            // Issues a pull request will close ("Closes #12" in its description).
+            async function closingIssues(prNumber) {
+              const r = await github.graphql(
+                `query($o:String!,$r:String!,$n:Int!){ repository(owner:$o,name:$r){ pullRequest(number:$n){ closingIssuesReferences(first:20){ nodes{ id number repository{ nameWithOwner } } } } } }`,
+                { o: owner, r: repo, n: prNumber }
+              );
+              return r.repository.pullRequest.closingIssuesReferences.nodes.filter((i) => i.repository.nameWithOwner === `${owner}/${repo}`);
+            }
+
+            const e = context.eventName;
+            const p = context.payload;
+
+            if (e === 'issues' && ['opened', 'reopened'].includes(p.action)) {
+              const spec = (p.issue.labels ?? []).some((l) => l.name === 'spec');
+              await move(p.issue, spec ? 'Spec: needs approval' : 'Ideas', `${p.action === 'opened' ? 'Opened' : 'Reopened'} by ${actor}, ${when()}.`);
+            } else if (e === 'issues' && p.action === 'closed') {
+              // Closing by hand is recorded, never counted as shipped: only a deploy makes a card Live.
+              const itemId = await itemFor(p.issue.node_id);
+              await set(itemId, 'Last update', `Closed by ${actor}, ${when()} (${p.issue.state_reason ?? 'completed'}).`);
+            } else if (e === 'pull_request' && ['opened', 'reopened', 'ready_for_review'].includes(p.action) && !p.pull_request.draft) {
+              for (const issue of await closingIssues(p.pull_request.number)) {
+                await move(issue, 'In review', `Pull request #${p.pull_request.number} opened by ${actor}, ${when()}.`);
+              }
+            } else if (e === 'pull_request' && p.action === 'closed' && p.pull_request.merged && mode === 'release') {
+              for (const issue of await closingIssues(p.pull_request.number)) {
+                await move(issue, 'Testing', `Merged in #${p.pull_request.number} by ${actor}, ${when()}, commit ${p.pull_request.merge_commit_sha.slice(0, 7)}. Live after the next release.`);
+              }
+            } else if (e === 'push' && mode === 'merge') {
+              // A push to main is the deploy (the host deploys on every commit).
+              const commits = p.commits ?? [];
+              const head = p.head_commit;
+              if (!head) return;
+              const sha = head.id.slice(0, 7);
+              const line = `Deployed to live, ${when(head.timestamp)}, by ${actor}, commit ${sha} "${head.message.split('\n')[0]}".`;
+              const done = new Set();
+              for (const c of commits) {
+                const prs = (await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: c.id })).data.filter((pr) => pr.merged_at);
+                for (const pr of prs) for (const issue of await closingIssues(pr.number)) {
+                  if (done.has(issue.number)) continue;
+                  done.add(issue.number);
+                  await move(issue, 'Live', line, { 'Deployed at': today });
+                }
+                for (const m of c.message.matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi)) {
+                  const n = Number(m[1]);
+                  if (done.has(n)) continue;
+                  done.add(n);
+                  const issue = (await github.rest.issues.get({ owner, repo, issue_number: n })).data;
+                  await move(issue, 'Live', line, { 'Deployed at': today });
+                }
+              }
+              await log(`**${owner}/${repo}** (${product}) deployed, ${when(head.timestamp)}, by ${actor}: [${sha}](${head.url}) ${head.message.split('\n')[0]}${done.size ? ` · cards: ${[...done].map((n) => `#${n}`).join(', ')}` : ''}`);
+            } else if (e === 'release' && p.action === 'published' && mode === 'release') {
+              const rel = p.release;
+              // Cards of this repository waiting in Testing (merged, not yet released) go Live.
+              const items = (await github.graphql(
+                `query($p:ID!){ node(id:$p){ ... on ProjectV2 { items(first:100){ nodes{ id
+                   content{ ... on Issue { id number state repository{ nameWithOwner } } }
+                   fieldValueByName(name:"Status"){ ... on ProjectV2ItemFieldSingleSelectValue { name } } } } } } }`,
+                { p: project.id }
+              )).node.items.nodes.filter((i) => i.content?.repository?.nameWithOwner === `${owner}/${repo}` && i.fieldValueByName?.name === 'Testing');
+              const line = `Released ${rel.tag_name}${rel.prerelease ? ' (pre-release)' : ''}, ${when(rel.published_at)}, by ${actor}.`;
+              for (const i of items) await move({ node_id: i.content.id, number: i.content.number }, 'Live', line, { 'Deployed at': today });
+              await log(`**${owner}/${repo}** (${product}) released [${rel.tag_name}](${rel.html_url})${rel.prerelease ? ' (pre-release)' : ''}, ${when(rel.published_at)}, by ${actor}${items.length ? ` · cards: ${items.map((i) => `#${i.content.number}`).join(', ')}` : ''}`);
+            }
