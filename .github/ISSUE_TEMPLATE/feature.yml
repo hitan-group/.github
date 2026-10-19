@@ -1,0 +1,27 @@
+name: Feature
+description: Something new to build, or a change to how something works
+title: "Feature: "
+body:
+  - type: dropdown
+    id: product
+    attributes:
+      label: Product
+      options: [HITAN, InstaSpace, Travelooo, MOW, Secret Garden, Cliffs, ISN, SEO Assist, SEO Tool, Posting tool, Company]
+    validations: { required: true }
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: Who is it for, and what problem does it solve? One or two sentences.
+    validations: { required: true }
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: What must be true to call it finished, as a list you can test.
+      placeholder: "- A guest can ...\n- The admin sees ..."
+    validations: { required: true }
+  - type: textarea
+    id: notes
+    attributes:
+      label: Screens, rules and error cases

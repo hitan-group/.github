@@ -1,0 +1,31 @@
+name: Spec (needs approval)
+description: A one page spec to approve before any coding starts (Build, Test and Launch System, step 2)
+title: "Spec: "
+labels: [spec]
+body:
+  - type: dropdown
+    id: product
+    attributes:
+      label: Product
+      options: [HITAN, InstaSpace, Travelooo, MOW, Secret Garden, Cliffs, ISN, SEO Assist, SEO Tool, Posting tool, Company]
+    validations: { required: true }
+  - type: textarea
+    id: goal
+    attributes: { label: Goal }
+    validations: { required: true }
+  - type: textarea
+    id: screens
+    attributes: { label: Screens and flow }
+  - type: textarea
+    id: rules
+    attributes: { label: Rules and error cases }
+  - type: textarea
+    id: done
+    attributes: { label: What done means (tests the tester will run) }
+    validations: { required: true }
+  - type: checkboxes
+    id: approval
+    attributes:
+      label: Approval
+      options:
+        - label: Approved by Sir Osman (no coding before this is ticked)

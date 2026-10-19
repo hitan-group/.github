@@ -1,0 +1,38 @@
+name: Bug
+description: Something is broken or wrong
+title: "Bug: "
+body:
+  - type: dropdown
+    id: product
+    attributes:
+      label: Product
+      options: [HITAN, InstaSpace, Travelooo, MOW, Secret Garden, Cliffs, ISN, SEO Assist, SEO Tool, Posting tool, Company]
+    validations: { required: true }
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Critical = customers blocked or data at risk. High = a main feature broken. Medium = works with a workaround. Low = cosmetic.
+      options: [Critical, High, Medium, Low]
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open ...\n2. Tap ...\n3. See ..."
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen, and what happened instead
+    validations: { required: true }
+  - type: input
+    id: where
+    attributes:
+      label: Where (device, browser, staging or live, link)
+      placeholder: Android Chrome over 4G, staging, https://...
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or video
+      description: Drag files here. Never paste passwords, keys or real customer details.
