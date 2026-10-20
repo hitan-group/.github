@@ -1,0 +1,68 @@
+name: Bug found in testing
+description: For QA. A bug found while testing; the board tracks it until QA confirms the fix works on live.
+title: "Bug: "
+labels: [bug, found-in-testing]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One bug per report. After the developer's fix is deployed the board marks it **Needs testing** and tags the QA team;
+        record the retest in a [test report](https://github.com/hitan-group/qa/issues/new?template=test-report.yml).
+  - type: dropdown
+    id: product
+    attributes:
+      label: Product
+      options: [HITAN, InstaSpace, Travelooo, MOW, Secret Garden, Cliffs, ISN, SEO Assist, SEO Tool, Posting tool, Company]
+    validations: { required: true }
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Critical = customers blocked or data at risk. High = a main feature broken. Medium = works with a workaround. Low = cosmetic.
+      options: [Critical, High, Medium, Low]
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: Version or link tested
+      description: App version, release (e.g. v0.1.0-beta.2), or the page address. So the developer knows exactly what you tested.
+      placeholder: v0.1.0-beta.2 / build 14 / https://...
+    validations: { required: true }
+  - type: input
+    id: device
+    attributes:
+      label: Device, browser and network
+      placeholder: Samsung A54, Android 15, Chrome, 4G
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open ...\n2. Tap ...\n3. See ..."
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen
+    validations: { required: true }
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+    validations: { required: true }
+  - type: dropdown
+    id: repeat
+    attributes:
+      label: How often
+      options: [Every time, Sometimes, Happened once]
+    validations: { required: true }
+  - type: input
+    id: report
+    attributes:
+      label: Test report (optional)
+      description: The test report this was found in, e.g. hitan-group/qa#3
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or video
+      description: Drag files here. Never paste passwords, keys or real customer details.

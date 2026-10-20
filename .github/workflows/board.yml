@@ -81,8 +81,14 @@ jobs:
               await set(itemId, 'Status', status);
               await set(itemId, 'Product', product);
               await set(itemId, 'Last update', line);
+              // Live is not the end: QA tests the live version and records the result in a test report (hitan-group/qa).
+              let ask = '';
+              if (status === 'Live') {
+                extra = { ...extra, 'QA result': 'Needs testing' };
+                ask = `\n\n@${ORG}/qa please test this on the live version and add the result to a [test report](https://github.com/${ORG}/qa/issues/new?template=test-report.yml).`;
+              }
               for (const [k, v] of Object.entries(extra)) await set(itemId, k, v);
-              await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: `**Board: ${status}.** ${line}` });
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: `**Board: ${status}.** ${line}${ask}` });
             }
             const log = (line) => github.rest.issues.createComment({ ...LOG, body: line });
 
@@ -99,10 +105,21 @@ jobs:
             const p = context.payload;
 
             if (e === 'issues' && ['opened', 'reopened'].includes(p.action)) {
-              const spec = (p.issue.labels ?? []).some((l) => l.name === 'spec');
-              await move(p.issue, spec ? 'Spec: needs approval' : 'Ideas', `${p.action === 'opened' ? 'Opened' : 'Reopened'} by ${actor}, ${when()}.`);
+              const labels = (p.issue.labels ?? []).map((l) => l.name);
+              const extra = {};
+              if (labels.includes('bug')) extra['Work type'] = 'Bug';
+              if (labels.includes('found-in-testing')) extra['QA result'] = 'Waiting for fix';
+              if (p.action === 'reopened' && labels.includes('retest-failed')) {
+                // QA's test report said the deployed fix still fails (the qa repository reopened it): back to the developer.
+                await move(p.issue, 'In progress', `Reopened ${when()}: QA retest failed.`, { ...extra, 'QA result': 'Failed' });
+              } else {
+                const status = labels.includes('spec') ? 'Spec: needs approval' : 'Ideas';
+                await move(p.issue, status, `${p.action === 'opened' ? 'Opened' : 'Reopened'} by ${actor}, ${when()}.`, extra);
+              }
             } else if (e === 'issues' && p.action === 'closed') {
               // Closing by hand is recorded, never counted as shipped: only a deploy makes a card Live.
+              // A bug QA verified (hitan-group/qa test report) already has its Last update; keep it.
+              if ((p.issue.labels ?? []).some((l) => l.name === 'qa-verified')) return;
               const itemId = await itemFor(p.issue.node_id);
               await set(itemId, 'Last update', `Closed by ${actor}, ${when()} (${p.issue.state_reason ?? 'completed'}).`);
             } else if (e === 'pull_request' && ['opened', 'reopened', 'ready_for_review'].includes(p.action) && !p.pull_request.draft) {

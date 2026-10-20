@@ -1,6 +1,7 @@
 name: Bug
 description: Something is broken or wrong
 title: "Bug: "
+labels: [bug]
 body:
   - type: dropdown
     id: product
