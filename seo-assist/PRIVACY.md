@@ -1,6 +1,6 @@
 # SEO Assist Privacy Policy
 
-**Version 1.0, 20 October 2026.** SEO Assist is a browser extension made by HITAN.
+**Version 1.1, 22 October 2026.** SEO Assist is a browser extension made by HITAN.
 
 ## In short
 
@@ -19,6 +19,7 @@ SEO Assist has no account, no sign-up, no analytics and no tracking. HITAN does 
 | The audited website | Normal page requests, marked "SEO Assist" in the User-Agent | When you audit or crawl it |
 | Google PageSpeed Insights (www.googleapis.com) | The address of the audited page, and your PageSpeed key if you added one | When the speed check runs (can be switched off in Settings) |
 | Anthropic (api.anthropic.com) | The audit results and the page details they are based on, and your own Claude key | Only when you press Explain: first to count the cost, then, after you confirm, for the suggestions |
+| Google Search Console (googleapis.com), if you connect it | The address of the audited page and a read only sign in token, to read that page's clicks, searches and index status from your own Search Console | Only after you press Connect Search Console; the sign in ends when the browser closes |
 
 Google and Anthropic handle that data under their own privacy policies:
 https://policies.google.com/privacy and https://www.anthropic.com/legal/privacy.
@@ -27,6 +28,7 @@ https://policies.google.com/privacy and https://www.anthropic.com/legal/privacy.
 
 Everything is stored in your own browser:
 - **Your API keys** (Claude, PageSpeed): on this computer only, never synced.
+- **The Search Console sign in**, if you connect it: in memory for this browser session only; it is deleted when the browser closes, and Disconnect revokes it.
 - **Settings and reminders:** in your browser's sync storage, so they follow your Chrome profile.
 - **Audit history, crawl results and an error log** (the newest 50 errors, with anything that looks like a key removed): on this computer only.
 
